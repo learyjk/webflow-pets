@@ -13,17 +13,52 @@ function saveSettings() {
   // Send a message to the content script with the updated settings
   chrome.tabs.query({ currentWindow: true, active: true }, function (tabs) {
     var activeTab = tabs[0];
-    if (!activeTab || !activeTab.id) return;
-    chrome.tabs.sendMessage(activeTab.id, {
-      type: "updateSettings",
-      enableAnimation,
-      interval,
-    });
+    if (!activeTab || !activeTab.id || !activeTab.url) return;
+    let url = new URL(activeTab.url);
+    if (url.hostname === "webflow.com" && url.pathname.startsWith("/design/")) {
+      chrome.tabs.sendMessage(
+        activeTab.id,
+        {
+          type: "updateSettings",
+          enableAnimation,
+          interval,
+        },
+        function (response) {
+          console.log(response);
+          chrome.storage.sync.set(
+            {
+              enableAnimation,
+              interval,
+            },
+            function () {
+              // Update status to let user know options were saved.
+              var status = document.querySelector<HTMLDivElement>("#status");
+              if (!status) return;
+              status.textContent = "Options saved.";
+              setTimeout(function () {
+                if (!status) return;
+                status.textContent = "";
+              }, 750);
+            }
+          );
+        }
+      );
+    } else {
+      // not on webflow designer
+      var status = document.querySelector<HTMLDivElement>("#status");
+      if (!status) return;
+      status.textContent = "Options cannot be saved on this page.";
+      setTimeout(function () {
+        if (!status) return;
+        status.textContent = "";
+      }, 750);
+    }
   });
 }
 
 // Function to restore the saved settings
 function restoreSettings() {
+  console.log("restoreSettings");
   const toggleAnimation =
     document.querySelector<HTMLInputElement>("#toggleAnimation");
   if (!toggleAnimation) return;
@@ -31,12 +66,16 @@ function restoreSettings() {
     document.querySelector<HTMLInputElement>("#intervalTime");
   if (!intervalTime) return;
 
-  // Get the saved settings from Chrome storage
-  chrome.storage.sync.get(["enableAnimation", "interval"], (result) => {
-    // Set the values of the UI elements
-    toggleAnimation.checked = result.enableAnimation;
-    intervalTime.value = result.interval || 1000;
-  });
+  chrome.storage.sync.get(
+    {
+      enableAnimation: true,
+      interval: 500,
+    },
+    function (items) {
+      toggleAnimation.checked = items.enableAnimation;
+      intervalTime.value = items.interval;
+    }
+  );
 }
 
 // Add event listener to the Save button
