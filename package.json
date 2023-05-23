@@ -1,0 +1,13 @@
+{
+  "devDependencies": {
+    "@types/chrome": "^0.0.236",
+    "esbuild": "^0.17.19",
+    "typescript": "^5.0.4"
+  },
+  "scripts": {
+    "dev": "node ./bin/build.js"
+  },
+  "type": "module",
+  "main": "src/index.ts",
+  "module": "src/index.ts"
+}
