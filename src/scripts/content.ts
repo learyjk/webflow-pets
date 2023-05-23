@@ -1,34 +1,10 @@
+import { selectors, spritesheets, AnimationTypes } from "./enums";
+import { AnimationMap } from "./types";
+
 const DEBUG = false;
-const QUICK = 250;
-const SLOW = 1000;
-
-enum selectors {
-  topBarSpace = ".top-bar-space",
-}
-
-enum spritesheets {
-  babyPurpleCow = "images/baby-purple-cow-spritesheet.png",
-}
-
-enum AnimationTypes {
-  Blink = "blink",
-  Breathe = "breathe",
-  Walk = "walk",
-  Jump = "jump",
-  Stand = "stand",
-  Sleep = "sleep",
-  Smell = "smell",
-  Eat = "eat",
-  Love = "love",
-}
-
-type AnimationInfo = {
-  frames: number;
-  minCycles: number;
-  maxCycles: number;
-};
-
-type AnimationMap = Map<AnimationTypes, AnimationInfo>;
+let enableAnimation = true;
+let interval = 500;
+let pet: Pet;
 
 const animations: AnimationMap = new Map([
   [AnimationTypes.Blink, { frames: 2, minCycles: 1, maxCycles: 2 }],
@@ -36,11 +12,20 @@ const animations: AnimationMap = new Map([
   [AnimationTypes.Walk, { frames: 4, minCycles: 4, maxCycles: 8 }],
   [AnimationTypes.Jump, { frames: 3, minCycles: 1, maxCycles: 1 }],
   [AnimationTypes.Stand, { frames: 4, minCycles: 1, maxCycles: 1 }],
-  [AnimationTypes.Sleep, { frames: 2, minCycles: 4, maxCycles: 8 }],
+  [AnimationTypes.Sleep, { frames: 2, minCycles: 20, maxCycles: 40 }],
   [AnimationTypes.Smell, { frames: 8, minCycles: 2, maxCycles: 3 }],
   [AnimationTypes.Eat, { frames: 4, minCycles: 2, maxCycles: 4 }],
   [AnimationTypes.Love, { frames: 6, minCycles: 1, maxCycles: 1 }],
 ]);
+
+chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
+  if (request.type === "updateSettings") {
+    console.log({ request });
+    interval = request.interval;
+    enableAnimation = request.enableAnimation;
+    pet.reset();
+  }
+});
 
 class Pet {
   sprite: HTMLDivElement;
@@ -48,8 +33,22 @@ class Pet {
   positionX: number;
   direction: 1 | -1;
   bounds: ClientRect | DOMRect;
+  clicked: boolean;
+  animationInterval: number;
 
   constructor(spriteSheet: string, animations: AnimationMap) {
+    this.animations = animations;
+    this.positionX = 0;
+    this.direction = 1;
+    this.clicked = false;
+
+    this.setupSprite(spriteSheet);
+    this.applyStyles();
+    this.setupEventListeners();
+    console.log({ interval });
+  }
+
+  private setupSprite(spriteSheet: string) {
     const topBarSpace = document.querySelectorAll<HTMLDivElement>(
       selectors.topBarSpace
     );
@@ -61,23 +60,27 @@ class Pet {
 
     const style = document.createElement("style");
     style.textContent = `
-            .webflow-pet {
-              position: relative;
-              bottom: -4px;
-              width: 32px;
-              height: 32px;
-              background: url(${chrome.runtime.getURL(spriteSheet)});
-              background-position: 0 0;
-            }
-          `;
+        .webflow-pet {
+          position: relative;
+          bottom: -4px;
+          width: 32px;
+          height: 32px;
+          background: url(${chrome.runtime.getURL(spriteSheet)});
+          background-position: 0 0;
+        }
+      `;
     document.head.appendChild(style);
+  }
 
-    this.animations = animations;
-    this.positionX = 0;
-    this.direction = 1;
+  private applyStyles() {
     if (!this.sprite.parentElement) return;
     this.bounds = this.sprite.parentElement.getBoundingClientRect();
-    window.onresize = this.reset.bind(this);
+    this.sprite.style.left = "0px"; // Reset the position of the sprite
+  }
+
+  private setupEventListeners() {
+    window.addEventListener("resize", this.reset.bind(this));
+    this.sprite.addEventListener("click", () => (this.clicked = true));
   }
 
   reset() {
@@ -85,100 +88,154 @@ class Pet {
     this.bounds = this.sprite.parentElement.getBoundingClientRect();
     this.positionX = 0;
     this.sprite.style.left = "0px"; // Reset the position of the sprite
+    clearInterval(this.animationInterval || 0);
+    this.animate();
   }
 
   animate() {
-    // Define an ordered sequence of animations
-    const sequence = [
-      AnimationTypes.Sleep,
-      AnimationTypes.Stand,
-      AnimationTypes.Walk,
-      AnimationTypes.Eat,
-      AnimationTypes.Walk,
-      AnimationTypes.Stand,
-      AnimationTypes.Sleep,
-    ];
+    // initial state
+    let state = AnimationTypes.Walk;
 
-    // Start at the beginning of the sequence
-    let sequenceIndex = 0;
-    let state = sequence[sequenceIndex];
+    // Initialize variables to keep track of the current animation state and position
     let animationInfo = this.animations.get(state);
     if (!animationInfo) return;
 
     let positionIndex = 0;
     let positions = this.getAnimationPositions(state, animationInfo.frames);
 
+    // Initialize cycle count and target cycle count for the current animation
     let cycleCount = 0;
     let targetCycleCount = getRandomInt(
       animationInfo.minCycles,
       animationInfo.maxCycles
     );
 
-    setInterval(
-      () => {
-        // Log the current animation name
-        DEBUG && console.log(`CURRENT ANIMATION: ${state}`);
-        DEBUG && console.log(`Target cycle count: ${targetCycleCount}`);
-        DEBUG && console.log(`Cycle count: ${cycleCount + 1}`);
-        DEBUG && console.log(`Number of frames: ${positions.length}`);
-        DEBUG && console.log(`Frame: ${positionIndex + 1}`);
+    // Set up the animation loop using setInterval
+    this.animationInterval = setInterval(() => {
+      // Log debug information
+      this.logDebugInfo(
+        state,
+        targetCycleCount,
+        cycleCount,
+        positions,
+        positionIndex
+      );
 
-        // Display sprite at current position
-        this.sprite.style.backgroundPosition = positions[positionIndex];
+      if (this.clicked) {
+        state = AnimationTypes.Love;
+        animationInfo = this.animations.get(state);
+        if (!animationInfo) return;
 
-        if (state === AnimationTypes.Walk) {
-          // Move sprite in the current direction
-          this.positionX += this.direction;
+        // Update positions and cycle count for the new animation state
+        positions = this.getAnimationPositions(state, animationInfo.frames);
+        cycleCount = 0;
+        targetCycleCount = getRandomInt(
+          animationInfo.minCycles,
+          animationInfo.maxCycles
+        );
+        this.clicked = false;
+      }
 
-          this.sprite.style.left = `${this.positionX}px`;
+      // Updates background image position for spriteshees
+      // positions[positionIndex] looks like "32px 64px" i.e. 2nd frame of 4th animation
+      this.displaySprite(positions[positionIndex]);
 
-          // 5% chance to change direction
-          if (Math.random() < 0.01) {
-            this.direction *= -1;
-          }
+      // Perform additional actions specific to the "Walk" animation
+      if (state === AnimationTypes.Walk) {
+        this.moveSprite(); // Move the sprite in the current direction
+        this.checkBoundaryCollision(); // Check if the sprite hits a boundary and reverse direction if needed
+        this.flipSpriteIfNeeded(); // Flip the sprite if moving left
+      }
 
-          // If the sprite hits a boundary, reverse direction
-          if (
-            this.positionX <= 0 ||
-            this.positionX >= (this.bounds?.width || 0) - 32
-          ) {
-            this.direction *= -1;
-            this.positionX += this.direction; // nudge sprite back into bounds
-          }
+      // Advance to the next animation frame position
+      positionIndex = (positionIndex + 1) % positions.length;
 
-          this.sprite.style.transform = `scaleX(${this.direction})`; // flip sprite if moving left
+      // Check if the current animation cycle is complete
+      if (positionIndex === 0) {
+        cycleCount++;
+
+        // Check if the target cycle count is reached for the current animation
+        if (cycleCount >= targetCycleCount) {
+          // Move to the next state in the sequence
+
+          state = this.getNextState(state);
+          animationInfo = this.animations.get(state);
+          if (!animationInfo) return;
+
+          // Update positions and cycle count for the new animation state
+          positions = this.getAnimationPositions(state, animationInfo.frames);
+          cycleCount = 0;
+          targetCycleCount = getRandomInt(
+            animationInfo.minCycles,
+            animationInfo.maxCycles
+          );
         }
-
-        // Advance the animation to the next frame
-        positionIndex = (positionIndex + 1) % positions.length;
-
-        // At the start of each animation cycle
-        if (positionIndex === 0) {
-          cycleCount++;
-
-          if (cycleCount >= targetCycleCount) {
-            // Move to the next state in the sequence
-            sequenceIndex = (sequenceIndex + 1) % sequence.length;
-            state = sequence[sequenceIndex];
-            animationInfo = this.animations.get(state);
-            if (!animationInfo) return;
-
-            // Get the positions for the new animation
-            positions = this.getAnimationPositions(state, animationInfo.frames);
-
-            cycleCount = 0;
-            targetCycleCount = getRandomInt(
-              animationInfo.minCycles,
-              animationInfo.maxCycles
-            );
-          }
-        }
-      },
-      DEBUG ? SLOW : QUICK
-    );
+      }
+    }, interval);
   }
 
-  getAnimationPositions(animation: AnimationTypes, frames: number) {
+  getNextState(currentState) {
+    if (currentState === AnimationTypes.Walk) {
+      return this.getRandomState();
+    } else if (currentState === AnimationTypes.Sleep) {
+      return AnimationTypes.Stand;
+    } else if (currentState === AnimationTypes.Stand) {
+      return AnimationTypes.Walk;
+    }
+    return Math.random() > 0.5 ? AnimationTypes.Walk : AnimationTypes.Breathe;
+  }
+
+  getRandomState() {
+    const animationKeys = Array.from(this.animations.keys());
+    const randomStateIndex = getRandomInt(0, animationKeys.length);
+    return animationKeys[randomStateIndex];
+  }
+
+  logDebugInfo(
+    state: AnimationTypes,
+    targetCycleCount: number,
+    cycleCount: number,
+    positions: string[],
+    positionIndex: number
+  ) {
+    if (DEBUG) {
+      console.log(`CURRENT ANIMATION: ${state}`);
+      console.log(`Target cycle count: ${targetCycleCount}`);
+      console.log(`Cycle count: ${cycleCount + 1}`);
+      console.log(`Number of frames: ${positions.length}`);
+      console.log(`Frame: ${positionIndex + 1}`);
+    }
+  }
+
+  displaySprite(position: string) {
+    this.sprite.style.backgroundPosition = position;
+  }
+
+  moveSprite() {
+    this.positionX += this.direction;
+    this.sprite.style.left = `${this.positionX}px`;
+  }
+
+  checkBoundaryCollision() {
+    if (
+      this.positionX <= 0 ||
+      this.positionX >= (this.bounds?.width || 0) - 32
+    ) {
+      this.direction *= -1;
+      this.positionX += this.direction;
+    }
+  }
+
+  flipSpriteIfNeeded() {
+    this.sprite.style.transform = `scaleX(${this.direction})`;
+  }
+
+  // returns positions for background image for each frame of the animation
+  private getAnimationPositions(
+    animation: AnimationTypes,
+    frames: number,
+    reverse: boolean = false
+  ) {
     if (frames <= 0) {
       console.error(`Invalid number of frames: ${frames}`);
       return [];
@@ -187,21 +244,23 @@ class Pet {
     const animationIndex = Array.from(this.animations.keys()).indexOf(
       animation
     );
-    return Array.from(
+    const positions = Array.from(
       { length: frames },
       (_, i) => `-${i * 32}px -${animationIndex * 32}px`
     );
+    return reverse ? positions.reverse() : positions;
   }
 }
 
-let interval: number;
-interval = setInterval(() => {
+let loadInterval: number;
+
+loadInterval = setInterval(() => {
   const topBarSpace = document.querySelectorAll<HTMLDivElement>(
     selectors.topBarSpace
   );
   if (!topBarSpace[1]) return;
-  clearInterval(interval);
-  const pet = new Pet(spritesheets.babyPurpleCow, animations);
+  clearInterval(loadInterval);
+  pet = new Pet(spritesheets.babyPurpleCow, animations);
   pet.animate();
 }, 1000);
 
