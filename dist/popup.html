@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Webflow Pets</title>
+    <!--
+    <link rel="stylesheet" type="text/css" href="popup.css" />
+    -->
+  </head>
+  <body>
+    <h1>Webflow Pets</h1>
+    <div>
+      <label for="toggleAnimation">Enable Animation:</label>
+      <input type="checkbox" id="toggleAnimation" checked />
+    </div>
+    <div>
+      <label for="intervalTime">Interval Time (ms):</label>
+      <input type="number" id="intervalTime" min="100" step="100" value="500" />
+    </div>
+    <div id="status">Status</div>
+    <button id="saveBtn">Save</button>
+
+    <script src="./scripts/popup.js"></script>
+  </body>
+</html>

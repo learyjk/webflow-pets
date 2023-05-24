@@ -1,13 +1,5 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-
 # Dependency directories
 node_modules/
-
-# TypeScript v1 declaration files
-typings/
 
 # Optional npm cache directory
 .npm
@@ -25,4 +17,4 @@ typings/
 .env
 
 # Production files
-dist
+# dist
