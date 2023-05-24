@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Webflow Pets",
+  "name": "Webflow Pet Baby Cow",
   "version": "1.0",
-  "description": "Adds a pet to Webflow designer",
+  "description": "Pet Baby Cow hangs out while you design beautiful websites with Webflow. Guaranteed to boost productivity, or at least make you smile.",
   "permissions": ["storage", "activeTab"],
   "action": {
     "default_popup": "popup.html",
