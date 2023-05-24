@@ -1,6 +1,7 @@
 (() => {
   // src/scripts/content.ts
   var DEBUG = false;
+  var scale = 1.5;
   var enableAnimation;
   var interval;
   var pet;
@@ -58,11 +59,13 @@
       style.textContent = `
         .webflow-pet {
           position: relative;
-          bottom: -4px;
+          top: -2px;
           width: 32px;
           height: 32px;
           background: url(${chrome.runtime.getURL(spriteSheet)});
           background-position: 0 0;
+          transform: scaleX(${scale}) scaleY(${scale});
+          transform-origin: center;
         }
       `;
       document.head.appendChild(style);
@@ -71,7 +74,7 @@
       if (!this.sprite.parentElement)
         return;
       this.bounds = this.sprite.parentElement.getBoundingClientRect();
-      this.sprite.style.left = "0px";
+      this.sprite.style.transform = `translateX(${this.positionX}px) scaleX(${this.direction * scale}) scaleY(${scale})`;
     }
     setupEventListeners() {
       window.addEventListener("resize", this.reset.bind(this));
@@ -82,7 +85,7 @@
         return;
       this.bounds = this.sprite.parentElement.getBoundingClientRect();
       this.positionX = 0;
-      this.sprite.style.left = "0px";
+      this.sprite.style.transform = `translateX(0px) scaleX(${scale}) scaleY(${scale})`;
       clearInterval(this.animationInterval || 0);
       enableAnimation && this.animate();
     }
@@ -178,7 +181,7 @@
         this.direction *= -1;
       }
       this.positionX += this.direction;
-      this.sprite.style.left = `${this.positionX}px`;
+      this.sprite.style.transform = `translateX(${this.positionX}px) scaleX(${this.direction * scale}) scaleY(${scale})`;
     }
     checkBoundaryCollision() {
       if (this.positionX <= 0 || this.positionX >= (this.bounds?.width || 0) - 32) {
@@ -187,7 +190,7 @@
       }
     }
     flipSpriteIfNeeded() {
-      this.sprite.style.transform = `scaleX(${this.direction})`;
+      this.sprite.style.transform = `translateX(${this.positionX}px) scaleX(${this.direction * scale}) scaleY(${scale})`;
     }
     // returns positions for background image for each frame of the animation
     getAnimationPositions(animation, frames, reverse = false) {

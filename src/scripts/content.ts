@@ -2,6 +2,7 @@ import { selectors, spritesheets, AnimationTypes } from "./enums";
 import { AnimationMap } from "./types";
 
 const DEBUG = false;
+const scale = 1.5;
 let enableAnimation: boolean;
 let interval: number;
 let pet: Pet;
@@ -75,11 +76,13 @@ class Pet {
     style.textContent = `
         .webflow-pet {
           position: relative;
-          bottom: -4px;
+          top: -2px;
           width: 32px;
           height: 32px;
           background: url(${chrome.runtime.getURL(spriteSheet)});
           background-position: 0 0;
+          transform: scaleX(${scale}) scaleY(${scale});
+          transform-origin: center;
         }
       `;
     document.head.appendChild(style);
@@ -88,7 +91,9 @@ class Pet {
   private applyStyles() {
     if (!this.sprite.parentElement) return;
     this.bounds = this.sprite.parentElement.getBoundingClientRect();
-    this.sprite.style.left = "0px"; // Reset the position of the sprite
+    this.sprite.style.transform = `translateX(${this.positionX}px) scaleX(${
+      this.direction * scale
+    }) scaleY(${scale})`;
   }
 
   private setupEventListeners() {
@@ -100,7 +105,7 @@ class Pet {
     if (!this.sprite.parentElement) return;
     this.bounds = this.sprite.parentElement.getBoundingClientRect();
     this.positionX = 0;
-    this.sprite.style.left = "0px"; // Reset the position of the sprite
+    this.sprite.style.transform = `translateX(0px) scaleX(${scale}) scaleY(${scale})`;
     clearInterval(this.animationInterval || 0);
     enableAnimation && this.animate();
   }
@@ -232,7 +237,9 @@ class Pet {
       this.direction *= -1;
     }
     this.positionX += this.direction;
-    this.sprite.style.left = `${this.positionX}px`;
+    this.sprite.style.transform = `translateX(${this.positionX}px) scaleX(${
+      this.direction * scale
+    }) scaleY(${scale})`;
   }
 
   checkBoundaryCollision() {
@@ -246,7 +253,9 @@ class Pet {
   }
 
   flipSpriteIfNeeded() {
-    this.sprite.style.transform = `scaleX(${this.direction})`;
+    this.sprite.style.transform = `translateX(${this.positionX}px) scaleX(${
+      this.direction * scale
+    }) scaleY(${scale})`;
   }
 
   // returns positions for background image for each frame of the animation
