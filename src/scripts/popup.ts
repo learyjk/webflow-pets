@@ -1,3 +1,5 @@
+const ANIMATION_DELAY = 750;
+
 function saveSettings() {
   const toggleAnimation =
     document.querySelector<HTMLInputElement>("#toggleAnimation");
@@ -24,7 +26,6 @@ function saveSettings() {
           interval,
         },
         function (response) {
-          console.log(response);
           chrome.storage.sync.set(
             {
               enableAnimation,
@@ -32,33 +33,35 @@ function saveSettings() {
             },
             function () {
               // Update status to let user know options were saved.
-              var status = document.querySelector<HTMLDivElement>("#status");
+              var status = document.querySelector<HTMLDivElement>(".status");
               if (!status) return;
               status.textContent = "Options saved.";
+              status.classList.remove("hidden");
+              console.log({ status });
               setTimeout(function () {
                 if (!status) return;
-                status.textContent = "";
-              }, 750);
+                status.classList.add("hidden");
+              }, ANIMATION_DELAY);
             }
           );
         }
       );
     } else {
       // not on webflow designer
-      var status = document.querySelector<HTMLDivElement>("#status");
+      var status = document.querySelector<HTMLDivElement>(".status");
       if (!status) return;
       status.textContent = "Options cannot be saved on this page.";
+      status.classList.remove("hidden");
       setTimeout(function () {
         if (!status) return;
-        status.textContent = "";
-      }, 750);
+        status.classList.add("hidden");
+      }, ANIMATION_DELAY);
     }
   });
 }
 
 // Function to restore the saved settings
 function restoreSettings() {
-  console.log("restoreSettings");
   const toggleAnimation =
     document.querySelector<HTMLInputElement>("#toggleAnimation");
   if (!toggleAnimation) return;

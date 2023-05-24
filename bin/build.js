@@ -5,6 +5,7 @@ const ctx = await esbuild.context({
     "src/scripts/content.ts",
     "src/test/index.ts",
     "src/scripts/popup.ts",
+    "src/styles/popup.css",
   ],
   bundle: true,
   outdir: "dist",
